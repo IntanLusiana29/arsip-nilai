@@ -13,7 +13,7 @@ echo "<!DOCTYPE html>
         .info { color: blue; }
         button { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 5px; }
     </style>
-</head>
+<link rel='stylesheet' href='assets/app.css'></head>
 <body>
     <div class='box'>
         <h2>🔧 Fix Foreign Key Constraint</h2>";

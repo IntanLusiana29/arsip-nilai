@@ -16,7 +16,7 @@ echo "<!DOCTYPE html>
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background: #34495e; color: white; }
     </style>
-</head>
+<link rel='stylesheet' href='assets/app.css'></head>
 <body>
     <div class='container'>
         <h2>🔧 Perbaikan Error Foreign Key</h2>";

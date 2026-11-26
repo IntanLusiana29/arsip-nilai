@@ -26,109 +26,15 @@ try {
 // Ambil nama mapel dengan aman
 $nama_mapel = ($mapel && isset($mapel['nama_mapel'])) ? $mapel['nama_mapel'] : 'Mata Pelajaran';
 ?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard Guru - <?= htmlspecialchars($nama_mapel) ?></title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
-        .header { background: #27ae60; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .container { padding: 20px; max-width: 1200px; margin: auto; }
-        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .card { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            text-decoration: none; 
-            color: #333; 
-            display: block;
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-align: center;
-        }
-        .card:hover { 
-            transform: translateY(-5px); 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        }
-        .card h3 { 
-            margin-bottom: 15px; 
-            color: #27ae60;
-            font-size: 24px;
-        }
-        .card p { 
-            color: #666;
-            font-size: 14px;
-        }
-        .card .icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        .logout { 
-            background: #e74c3c; 
-            color: white; 
-            padding: 8px 15px; 
-            border-radius: 5px; 
-            text-decoration: none;
-        }
-        .info-mapel { 
-            background: #e8f5e9; 
-            padding: 15px; 
-            border-radius: 10px; 
-            margin-top: 20px;
-            text-align: center;
-        }
-        .error-box {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            text-align: center;
-            border-left: 4px solid #dc3545;
-        }
-        @media (max-width: 768px) {
-            .menu { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h2>📚 Guru Panel - <?= htmlspecialchars($nama_mapel) ?></h2>
-        <div>
-            <span>Halo, <?= htmlspecialchars($_SESSION['full_name'] ?? 'Guru') ?></span>
-            <a href="logout.php" class="logout">Logout</a>
-        </div>
-    </div>
-    <div class="container">
-        <?php if($error): ?>
-            <div class="error-box">
-                ❌ <?= htmlspecialchars($error) ?>
-            </div>
-        <?php endif; ?>
-        
-        <div class="info-mapel">
-            <strong>Mata Pelajaran:</strong> <?= htmlspecialchars($nama_mapel) ?>
-        </div>
-        
-        <div class="menu">
-            <a href="guru/input_nilai.php" class="card">
-                <div class="icon">✏️</div>
-                <h3>Input Nilai</h3>
-                <p>Input nilai sumatif 1-5, proyek, dan UAS</p>
-            </a>
-            <a href="guru/lihat_nilai.php" class="card">
-                <div class="icon">👁️</div>
-                <h3>Lihat Nilai</h3>
-                <p>Lihat semua nilai yang sudah diinput</p>
-            </a>
-            <a href="guru/edit_nilai.php" class="card">
-                <div class="icon">✏️</div>
-                <h3>Edit Nilai</h3>
-                <p>Edit nilai yang sudah diinput</p>
-            </a>
-        </div>
-    </div>
-</body>
-</html>
+<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard Guru - <?= htmlspecialchars($nama_mapel) ?></title><link rel="stylesheet" href="assets/app.css"><style>
+.page-heading{margin:12px 0 5px}.eyebrow{color:#2563eb;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}.page-heading h1{margin:7px 0;font-size:28px}.page-heading p{margin:0;color:#718096}.card-icon{width:52px;height:52px;border-radius:15px;background:#edf4ff;display:grid;place-items:center;font-size:24px;margin:0 auto 18px}.menu .card{text-align:center;padding:30px!important}.card-arrow{margin-top:18px;color:#2563eb;font-size:13px;font-weight:800}
+</style></head><body>
+<header class="header"><h2>▤ Arsip Nilai <span style="font-weight:400;color:#c6d5e8">/ Panel Guru</span></h2><div><span>Halo, <?= htmlspecialchars($_SESSION['full_name'] ?? 'Guru', ENT_QUOTES, 'UTF-8') ?></span> &nbsp; <a href="logout.php" class="logout">Keluar ↗</a></div></header>
+<main class="container"><section class="page-heading"><div class="eyebrow">Ruang kerja guru</div><h1>Selamat datang, <?= htmlspecialchars($_SESSION['full_name'] ?? 'Guru', ENT_QUOTES, 'UTF-8') ?></h1><p>Kelola penilaian siswa untuk mata pelajaran yang Anda ampu.</p></section>
+<?php if($error): ?><div class="error-box">⚠ <?= htmlspecialchars($error) ?></div><?php endif; ?>
+<div class="info-mapel"><strong>Mata Pelajaran</strong><div style="font-size:19px;font-weight:800;margin-top:4px"><?= htmlspecialchars($nama_mapel) ?></div></div>
+<div class="menu">
+<a href="guru/input_nilai.php" class="card"><div class="card-icon">✏️</div><h3>Input Nilai</h3><p>Masukkan nilai sumatif, proyek, dan UAS siswa.</p><div class="card-arrow">Mulai input nilai →</div></a>
+<a href="guru/lihat_nilai.php" class="card"><div class="card-icon">📈</div><h3>Lihat Nilai</h3><p>Tinjau nilai siswa dan hasil rekapitulasi kelas.</p><div class="card-arrow">Lihat rekap nilai →</div></a>
+<a href="guru/edit_nilai.php" class="card"><div class="card-icon">📝</div><h3>Edit Nilai</h3><p>Perbarui nilai yang sudah tersimpan dalam sistem.</p><div class="card-arrow">Perbarui nilai →</div></a>
+</div><p style="margin-top:32px;font-size:12px;color:#9aa6b5">Arsip Nilai · Sistem Informasi Akademik</p></main></body></html>

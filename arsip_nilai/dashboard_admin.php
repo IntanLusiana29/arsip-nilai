@@ -2,50 +2,15 @@
 require_once 'config/auth.php';
 checkAccess('admin');
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard Admin</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial; background: #f5f5f5; }
-        .header { background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .container { padding: 20px; }
-        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-decoration: none; color: #333; transition: transform 0.2s; display: block; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .card h3 { margin-bottom: 10px; color: #2c3e50; }
-        .logout { background: #e74c3c; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h2>Admin Panel - Arsip Nilai</h2>
-        <div>
-            <span>Halo, <?= $_SESSION['full_name'] ?></span>
-            <a href="logout.php" class="logout">Logout</a>
-        </div>
-    </div>
-    <div class="container">
-        <h2>Menu Administrasi</h2>
-        <div class="menu">
-            <a href="admin/manage_siswa.php" class="card">
-                <h3>📚 Kelola Siswa</h3>
-                <p>Tambah, edit, hapus data siswa</p>
-            </a>
-            <a href="admin/manage_guru.php" class="card">
-                <h3>👨‍🏫 Kelola Guru</h3>
-                <p>Kelola akun guru mata pelajaran</p>
-            </a>
-            <a href="admin/manage_nilai.php" class="card">
-                <h3>📊 Kelola Semua Nilai</h3>
-                <p>Lihat dan edit semua nilai siswa</p>
-            </a>
-            <a href="admin/report.php" class="card">
-                <h3>📑 Laporan Nilai</h3>
-                <p>Cetak laporan nilai per kelas</p>
-            </a>
-        </div>
-    </div>
-</body>
-</html>
+<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard Administrator | Arsip Nilai</title><link rel="stylesheet" href="assets/app.css"><style>
+.page-heading{margin:12px 0 5px}.eyebrow{color:#2563eb;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}.page-heading h1{margin:7px 0;font-size:28px}.page-heading p{margin:0;color:#718096}.card-icon{width:48px;height:48px;border-radius:14px;background:#edf4ff;display:grid;place-items:center;font-size:23px;margin-bottom:18px}.card-arrow{display:flex;justify-content:space-between;align-items:center;margin-top:18px;color:#2563eb;font-size:13px;font-weight:800}
+</style></head><body>
+<header class="header"><h2>▤ Arsip Nilai <span style="font-weight:400;color:#c6d5e8">/ Administrator</span></h2><div><span>Halo, <?= htmlspecialchars($_SESSION['full_name'] ?? 'Administrator', ENT_QUOTES, 'UTF-8') ?></span> &nbsp; <a href="logout.php" class="logout">Keluar ↗</a></div></header>
+<main class="container"><section class="page-heading"><div class="eyebrow">Ruang kerja administrator</div><h1>Dashboard Administrasi</h1><p>Kelola data akademik dan pantau aktivitas sistem dari satu tempat.</p></section>
+<div class="menu">
+<a href="admin/manage_siswa.php" class="card"><div class="card-icon">🎓</div><h3>Kelola Siswa</h3><p>Tambah, perbarui, dan kelola data siswa berdasarkan kelas.</p><div class="card-arrow">Buka pengelolaan <span>→</span></div></a>
+<a href="admin/manage_guru.php" class="card"><div class="card-icon">👨‍🏫</div><h3>Kelola Guru</h3><p>Atur akun guru dan penugasan mata pelajaran.</p><div class="card-arrow">Buka pengelolaan <span>→</span></div></a>
+<a href="admin/manage_nilai.php" class="card"><div class="card-icon">📊</div><h3>Kelola Semua Nilai</h3><p>Tinjau dan kelola rekap nilai seluruh siswa.</p><div class="card-arrow">Lihat data nilai <span>→</span></div></a>
+<a href="admin/audit_log.php" class="card"><div class="card-icon">🧾</div><h3>Riwayat Aktivitas</h3><p>Lihat catatan aktivitas dan perubahan data pada sistem.</p><div class="card-arrow">Lihat riwayat <span>→</span></div></a>
+<a href="admin/report.php" class="card"><div class="card-icon">📑</div><h3>Laporan Nilai</h3><p>Susun, tinjau, dan cetak laporan nilai berdasarkan kelas.</p><div class="card-arrow">Buka laporan <span>→</span></div></a>
+</div><p style="margin-top:32px;font-size:12px;color:#9aa6b5">Arsip Nilai · Sistem Informasi Akademik</p></main></body></html>

@@ -1,210 +1,139 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 require_once '../config/auth.php';
 require_once '../config/database.php';
 checkAccess('admin');
 
-$kelas = $_GET['kelas'] ?? '';
-$mapel_id = $_GET['mapel_id'] ?? '';
-$semester = $_GET['semester'] ?? '1';
-$tahun_ajaran = '2024/2025';
+$default_tahun = (date('n') >= 7)
+    ? date('Y') . '/' . (date('Y') + 1)
+    : (date('Y') - 1) . '/' . date('Y');
+$kelas = $_POST['kelas'] ?? $_GET['kelas'] ?? '';
+$mapel_id = $_POST['mapel_id'] ?? $_GET['mapel_id'] ?? '';
+$semester = $_POST['semester'] ?? $_GET['semester'] ?? '1';
+$tahun_ajaran = $_POST['tahun_ajaran'] ?? $_GET['tahun_ajaran'] ?? $default_tahun;
 $error = '';
 $success = '';
 
-// Cek dan tambah kolom jika diperlukan
+// Validasi parameter agar filter admin sama dengan halaman input guru.
+if (!in_array($kelas, ['', 'VII', 'VIII', 'IX'], true)) $kelas = '';
+if (!in_array((string)$semester, ['1', '2'], true)) $semester = '1';
+if (!preg_match('/^[0-9]{4}\/[0-9]{4}$/', (string)$tahun_ajaran)) {
+    $tahun_ajaran = $default_tahun;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') $error = 'Format tahun ajaran tidak valid. Contoh: 2026/2027.';
+}
+
+// Pastikan kolom penilaian tersedia pada database lama.
 try {
     $stmt = $pdo->query("SHOW COLUMNS FROM nilai");
     $existing_columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    $required_columns = [
-        'nilai_sumatif1', 'nilai_sumatif2', 'nilai_sumatif3', 
-        'nilai_sumatif4', 'nilai_sumatif5', 'nilai_proyek', 
-        'nilai_uas', 'rata_sumatif', 'nilai_raport'
-    ];
-    
+    $required_columns = ['nilai_sumatif1','nilai_sumatif2','nilai_sumatif3','nilai_sumatif4','nilai_sumatif5','nilai_proyek','nilai_uas','rata_sumatif','nilai_raport'];
     foreach ($required_columns as $col) {
-        if (!in_array($col, $existing_columns)) {
-            $pdo->exec("ALTER TABLE nilai ADD COLUMN $col DECIMAL(5,2) DEFAULT NULL");
+        if (!in_array($col, $existing_columns, true)) {
+            $pdo->exec("ALTER TABLE nilai ADD COLUMN `$col` DECIMAL(5,2) DEFAULT NULL");
         }
     }
 } catch (PDOException $e) {
-    // Tabel mungkin belum ada atau kolom sudah ada
+    $error = 'Struktur tabel nilai belum siap: ' . $e->getMessage();
 }
 
-// Ambil data mata pelajaran
 $mapel_list = [];
 try {
-    $stmt = $pdo->query("SELECT * FROM mata_pelajaran ORDER BY id");
-    $mapel_list = $stmt->fetchAll();
+    $stmt = $pdo->query("SELECT id, nama_mapel FROM mata_pelajaran ORDER BY nama_mapel");
+    $mapel_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error = "Gagal mengambil data mata pelajaran: " . $e->getMessage();
+    $error = 'Gagal mengambil mata pelajaran: ' . $e->getMessage();
 }
 
-// Ambil data siswa
-$siswa_list = [];
-$nilai_list = [];
+// Simpan dengan struktur dan rumus yang sama seperti input nilai guru.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_nilai']) && $error === '') {
+    verifyCsrf();
+    if ($kelas === '' || !filter_var($mapel_id, FILTER_VALIDATE_INT) || !in_array((string)$semester, ['1','2'], true)) {
+        $error = 'Kelas, mata pelajaran, dan semester harus dipilih dengan benar.';
+    } else {
+        try {
+            $pdo->beginTransaction();
+            $checkMapel = $pdo->prepare('SELECT id FROM mata_pelajaran WHERE id = ?');
+            $checkMapel->execute([$mapel_id]);
+            if (!$checkMapel->fetchColumn()) throw new Exception('Mata pelajaran tidak ditemukan.');
 
-if ($kelas && $mapel_id) {
-    try {
-        $stmt = $pdo->prepare("SELECT * FROM siswa WHERE kelas = ? ORDER BY nama_siswa");
-        $stmt->execute([$kelas]);
-        $siswa_list = $stmt->fetchAll();
-        
-        if (!empty($siswa_list)) {
-            $stmt = $pdo->prepare("
-                SELECT * FROM nilai 
-                WHERE mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?
-            ");
-            $stmt->execute([$mapel_id, $semester, $tahun_ajaran]);
-            $existing_nilai = [];
-            while ($row = $stmt->fetch()) {
-                $existing_nilai[$row['siswa_id']] = $row;
+            $checkSiswa = $pdo->prepare('SELECT id FROM siswa WHERE id = ? AND kelas = ?');
+            $findNilai = $pdo->prepare('SELECT id FROM nilai WHERE siswa_id = ? AND mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?');
+            $updateNilai = $pdo->prepare('UPDATE nilai SET kelas = ?, nilai_sumatif1 = ?, nilai_sumatif2 = ?, nilai_sumatif3 = ?, nilai_sumatif4 = ?, nilai_sumatif5 = ?, nilai_proyek = ?, nilai_uas = ?, rata_sumatif = ?, nilai_raport = ? WHERE siswa_id = ? AND mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?');
+            $insertNilai = $pdo->prepare('INSERT INTO nilai (siswa_id,mata_pelajaran_id,kelas,semester,tahun_ajaran,nilai_sumatif1,nilai_sumatif2,nilai_sumatif3,nilai_sumatif4,nilai_sumatif5,nilai_proyek,nilai_uas,rata_sumatif,nilai_raport) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+
+            foreach (($_POST['nilai'] ?? []) as $siswa_id => $data) {
+                $siswa_id = filter_var($siswa_id, FILTER_VALIDATE_INT);
+                if (!$siswa_id) continue;
+                $checkSiswa->execute([$siswa_id, $kelas]);
+                if (!$checkSiswa->fetchColumn()) continue;
+
+                $getScore = static function ($value) {
+                    if ($value === null || trim((string)$value) === '') return null;
+                    if (!is_numeric($value)) throw new Exception('Nilai harus berupa angka.');
+                    $score = (float)$value;
+                    if ($score < 0 || $score > 100) throw new Exception('Nilai harus berada pada rentang 0 sampai 100.');
+                    return $score;
+                };
+                $sum1 = $getScore($data['sum1'] ?? null);
+                $sum2 = $getScore($data['sum2'] ?? null);
+                $sum3 = $getScore($data['sum3'] ?? null);
+                $sum4 = $getScore($data['sum4'] ?? null);
+                $sum5 = $getScore($data['sum5'] ?? null);
+                $proyek = $getScore($data['proyek'] ?? null);
+                $uas = $getScore($data['uas'] ?? null);
+
+                // Nilai 0 tetap dihitung sebagai nilai yang valid.
+                $sumatif = array_values(array_filter([$sum1,$sum2,$sum3,$sum4,$sum5], static fn($v) => $v !== null));
+                $rata = count($sumatif) ? array_sum($sumatif) / count($sumatif) : null;
+                $total = 0; $bobot = 0;
+                if ($rata !== null) { $total += $rata * 0.4; $bobot += 0.4; }
+                if ($proyek !== null) { $total += $proyek * 0.3; $bobot += 0.3; }
+                if ($uas !== null) { $total += $uas * 0.3; $bobot += 0.3; }
+                $raport = $bobot > 0 ? $total / $bobot : null;
+
+                $findNilai->execute([$siswa_id,$mapel_id,$semester,$tahun_ajaran]);
+                if ($findNilai->fetchColumn()) {
+                    $updateNilai->execute([$kelas,$sum1,$sum2,$sum3,$sum4,$sum5,$proyek,$uas,$rata,$raport,$siswa_id,$mapel_id,$semester,$tahun_ajaran]);
+                } else {
+                    $insertNilai->execute([$siswa_id,$mapel_id,$kelas,$semester,$tahun_ajaran,$sum1,$sum2,$sum3,$sum4,$sum5,$proyek,$uas,$rata,$raport]);
+                }
             }
-            
-            foreach ($siswa_list as $siswa) {
-                $nilai_list[] = [
-                    'siswa_id' => $siswa['id'],
-                    'nis' => $siswa['nis'],
-                    'nama_siswa' => $siswa['nama_siswa'],
-                    'nilai_sumatif1' => $existing_nilai[$siswa['id']]['nilai_sumatif1'] ?? null,
-                    'nilai_sumatif2' => $existing_nilai[$siswa['id']]['nilai_sumatif2'] ?? null,
-                    'nilai_sumatif3' => $existing_nilai[$siswa['id']]['nilai_sumatif3'] ?? null,
-                    'nilai_sumatif4' => $existing_nilai[$siswa['id']]['nilai_sumatif4'] ?? null,
-                    'nilai_sumatif5' => $existing_nilai[$siswa['id']]['nilai_sumatif5'] ?? null,
-                    'nilai_proyek' => $existing_nilai[$siswa['id']]['nilai_proyek'] ?? null,
-                    'nilai_uas' => $existing_nilai[$siswa['id']]['nilai_uas'] ?? null,
-                    'rata_sumatif' => $existing_nilai[$siswa['id']]['rata_sumatif'] ?? null,
-                    'nilai_raport' => $existing_nilai[$siswa['id']]['nilai_raport'] ?? null
-                ];
-            }
+            $pdo->commit();
+            auditLog($pdo, 'KELOLA_NILAI', 'Admin menyimpan nilai kelas ' . $kelas . ', mata pelajaran ID ' . $mapel_id . ', semester ' . $semester . ', tahun ajaran ' . $tahun_ajaran);
+            $success = 'Nilai berhasil disimpan dan tersinkron dengan data guru.';
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $error = 'Gagal menyimpan nilai: ' . $e->getMessage();
         }
-    } catch (PDOException $e) {
-        $error = "Gagal mengambil data: " . $e->getMessage();
     }
 }
 
-// Update nilai
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
+$siswa_list = [];
+$nilai_list = [];
+if ($kelas !== '' && filter_var($mapel_id, FILTER_VALIDATE_INT)) {
     try {
-        $pdo->beginTransaction();
-        
-        foreach ($_POST['nilai'] as $siswa_id => $nilai_data) {
-            $sum1 = !empty($nilai_data['sum1']) ? floatval($nilai_data['sum1']) : null;
-            $sum2 = !empty($nilai_data['sum2']) ? floatval($nilai_data['sum2']) : null;
-            $sum3 = !empty($nilai_data['sum3']) ? floatval($nilai_data['sum3']) : null;
-            $sum4 = !empty($nilai_data['sum4']) ? floatval($nilai_data['sum4']) : null;
-            $sum5 = !empty($nilai_data['sum5']) ? floatval($nilai_data['sum5']) : null;
-            $proyek = !empty($nilai_data['proyek']) ? floatval($nilai_data['proyek']) : null;
-            $uas = !empty($nilai_data['uas']) ? floatval($nilai_data['uas']) : null;
-            
-            // Hitung rata-rata sumatif
-            $sumatif_array = array_filter([$sum1, $sum2, $sum3, $sum4, $sum5]);
-            $rata_sumatif = null;
-            if (!empty($sumatif_array)) {
-                $rata_sumatif = array_sum($sumatif_array) / count($sumatif_array);
-            }
-            
-            // Hitung nilai raport: 40% rata sumatif + 30% proyek + 30% UAS
-            $nilai_raport = null;
-            $bobot_sum = 0;
-            $total_nilai = 0;
-            
-            if ($rata_sumatif !== null) {
-                $total_nilai += $rata_sumatif * 0.4;
-                $bobot_sum += 0.4;
-            }
-            if ($proyek !== null) {
-                $total_nilai += $proyek * 0.3;
-                $bobot_sum += 0.3;
-            }
-            if ($uas !== null) {
-                $total_nilai += $uas * 0.3;
-                $bobot_sum += 0.3;
-            }
-            
-            if ($bobot_sum > 0) {
-                $nilai_raport = $total_nilai / $bobot_sum;
-            }
-            
-            // Cek existing data
-            $stmt = $pdo->prepare("SELECT id FROM nilai WHERE siswa_id = ? AND mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?");
-            $stmt->execute([$siswa_id, $mapel_id, $semester, $tahun_ajaran]);
-            
-            if ($stmt->rowCount() > 0) {
-                $sql = "
-                    UPDATE nilai SET 
-                        nilai_sumatif1 = ?, nilai_sumatif2 = ?, nilai_sumatif3 = ?, 
-                        nilai_sumatif4 = ?, nilai_sumatif5 = ?, nilai_proyek = ?, 
-                        nilai_uas = ?, rata_sumatif = ?, nilai_raport = ?
-                    WHERE siswa_id = ? AND mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?
-                ";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([
-                    $sum1, $sum2, $sum3, $sum4, $sum5, $proyek, $uas,
-                    $rata_sumatif, $nilai_raport,
-                    $siswa_id, $mapel_id, $semester, $tahun_ajaran
-                ]);
-            } else {
-                $sql = "
-                    INSERT INTO nilai (
-                        siswa_id, mata_pelajaran_id, kelas, semester, tahun_ajaran,
-                        nilai_sumatif1, nilai_sumatif2, nilai_sumatif3, nilai_sumatif4, nilai_sumatif5,
-                        nilai_proyek, nilai_uas, rata_sumatif, nilai_raport
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([
-                    $siswa_id, $mapel_id, $kelas, $semester, $tahun_ajaran,
-                    $sum1, $sum2, $sum3, $sum4, $sum5, $proyek, $uas,
-                    $rata_sumatif, $nilai_raport
-                ]);
-            }
-        }
-        
-        $pdo->commit();
-        $success = "Nilai berhasil disimpan!";
-        
-        // Refresh data
-        $stmt = $pdo->prepare("SELECT * FROM siswa WHERE kelas = ? ORDER BY nama_siswa");
+        $stmt = $pdo->prepare('SELECT id, nis, nama_siswa FROM siswa WHERE kelas = ? ORDER BY nama_siswa');
         $stmt->execute([$kelas]);
-        $siswa_list = $stmt->fetchAll();
-        
-        if (!empty($siswa_list)) {
-            $stmt = $pdo->prepare("SELECT * FROM nilai WHERE mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?");
-            $stmt->execute([$mapel_id, $semester, $tahun_ajaran]);
-            $existing_nilai = [];
-            while ($row = $stmt->fetch()) {
-                $existing_nilai[$row['siswa_id']] = $row;
-            }
-            
-            $nilai_list = [];
-            foreach ($siswa_list as $siswa) {
-                $nilai_list[] = [
-                    'siswa_id' => $siswa['id'],
-                    'nis' => $siswa['nis'],
-                    'nama_siswa' => $siswa['nama_siswa'],
-                    'nilai_sumatif1' => $existing_nilai[$siswa['id']]['nilai_sumatif1'] ?? null,
-                    'nilai_sumatif2' => $existing_nilai[$siswa['id']]['nilai_sumatif2'] ?? null,
-                    'nilai_sumatif3' => $existing_nilai[$siswa['id']]['nilai_sumatif3'] ?? null,
-                    'nilai_sumatif4' => $existing_nilai[$siswa['id']]['nilai_sumatif4'] ?? null,
-                    'nilai_sumatif5' => $existing_nilai[$siswa['id']]['nilai_sumatif5'] ?? null,
-                    'nilai_proyek' => $existing_nilai[$siswa['id']]['nilai_proyek'] ?? null,
-                    'nilai_uas' => $existing_nilai[$siswa['id']]['nilai_uas'] ?? null,
-                    'rata_sumatif' => $existing_nilai[$siswa['id']]['rata_sumatif'] ?? null,
-                    'nilai_raport' => $existing_nilai[$siswa['id']]['nilai_raport'] ?? null
-                ];
-            }
+        $siswa_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $pdo->prepare('SELECT * FROM nilai WHERE kelas = ? AND mata_pelajaran_id = ? AND semester = ? AND tahun_ajaran = ?');
+        $stmt->execute([$kelas,$mapel_id,$semester,$tahun_ajaran]);
+        $existing = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $existing[$row['siswa_id']] = $row;
+        foreach ($siswa_list as $siswa) {
+            $row = $existing[$siswa['id']] ?? [];
+            $nilai_list[] = [
+                'siswa_id'=>$siswa['id'], 'nis'=>$siswa['nis'], 'nama_siswa'=>$siswa['nama_siswa'],
+                'nilai_sumatif1'=>$row['nilai_sumatif1'] ?? null, 'nilai_sumatif2'=>$row['nilai_sumatif2'] ?? null,
+                'nilai_sumatif3'=>$row['nilai_sumatif3'] ?? null, 'nilai_sumatif4'=>$row['nilai_sumatif4'] ?? null,
+                'nilai_sumatif5'=>$row['nilai_sumatif5'] ?? null, 'nilai_proyek'=>$row['nilai_proyek'] ?? null,
+                'nilai_uas'=>$row['nilai_uas'] ?? null, 'rata_sumatif'=>$row['rata_sumatif'] ?? null,
+                'nilai_raport'=>$row['nilai_raport'] ?? null
+            ];
         }
-        
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $error = "Terjadi kesalahan: " . $e->getMessage();
+    } catch (PDOException $e) {
+        $error = 'Gagal mengambil data nilai: ' . $e->getMessage();
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -241,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
         .nilai-raport { background: #d4edda; font-weight: bold; }
         .sub-header { background: #f0f0f0; }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="header">
         <h2>📊 Admin Panel - Kelola Semua Nilai (Sumatif & Proyek)</h2>
@@ -292,6 +221,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
                     </select>
                 </div>
                 <div class="filter-group">
+                    <label>📅 Tahun Ajaran</label>
+                    <input type="text" name="tahun_ajaran" value="<?= htmlspecialchars($tahun_ajaran) ?>" pattern="[0-9]{4}/[0-9]{4}" title="Gunakan format tahun ajaran, contoh: 2026/2027" maxlength="9" inputmode="numeric" required style="padding:10px;border:1px solid #ddd;border-radius:5px;min-width:150px">
+                </div>
+                <div class="filter-group">
                     <label>&nbsp;</label>
                     <button type="submit">🔍 Tampilkan Nilai</button>
                 </div>
@@ -307,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
             <?php elseif(!empty($nilai_list)): ?>
                 <div class="nilai-card">
                     <div class="info-mapel">
-                        <strong>📌 Kelas <?= htmlspecialchars($kelas) ?> - Semester <?= $semester ?></strong><br>
+                        <strong>📌 Kelas <?= htmlspecialchars($kelas) ?> - Semester <?= htmlspecialchars($semester) ?> - Tahun Ajaran <?= htmlspecialchars($tahun_ajaran) ?></strong><br>
                         Mata Pelajaran: <?php 
                             $mapel_nama = '';
                             foreach($mapel_list as $m) {
@@ -320,7 +253,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
                     </div>
                     
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="update_nilai" value="1">
+                        <input type="hidden" name="kelas" value="<?= htmlspecialchars($kelas) ?>">
+                        <input type="hidden" name="mapel_id" value="<?= htmlspecialchars((string)$mapel_id) ?>">
+                        <input type="hidden" name="semester" value="<?= htmlspecialchars($semester) ?>">
+                        <input type="hidden" name="tahun_ajaran" value="<?= htmlspecialchars($tahun_ajaran) ?>">
                         
                         <div style="overflow-x: auto;">
                             <table>

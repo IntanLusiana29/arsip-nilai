@@ -233,15 +233,26 @@ function getStatusClass($nilai) {
     </style>
     <script>
         function exportToExcel() {
-            let url = window.location.href;
-            let separator = url.includes('?') ? '&' : '?';
-            window.location.href = url + separator + 'export=excel';
+            const params = new URLSearchParams(window.location.search);
+            const kelas = params.get('kelas') || '';
+            const mapelId = params.get('mapel_id') || '';
+            const semester = params.get('semester') || '1';
+            if (!kelas || !mapelId) {
+                alert('Silakan pilih kelas dan mata pelajaran terlebih dahulu.');
+                return;
+            }
+            window.location.href = 'export_excel.php?' + new URLSearchParams({
+                kelas: kelas,
+                mapel_id: mapelId,
+                semester: semester,
+                tahun_ajaran: '2024/2025'
+            }).toString();
         }
     </script>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="header">
-        <h2>📊 Admin Panel - Laporan Nilai (Sumatif & Proyek)</h2>
+        <h2>Admin Panel - Laporan Nilai UPT SMPN SATAP PANGGUNGREJO (Sumatif & Proyek)</h2>
         <div>
             <span>Halo, <?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin') ?></span>
             <a href="../logout.php" class="logout">Logout</a>

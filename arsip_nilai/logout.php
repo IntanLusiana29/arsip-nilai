@@ -1,10 +1,12 @@
 <?php
-session_start();
-
-// Hapus semua session
+require_once 'config/auth.php';
+if (!empty($_SESSION['user_id'])) {
+    auditLog($pdo, 'LOGOUT', 'Pengguna keluar dari sistem.');
+}
+$_SESSION = [];
+if (ini_get('session.use_cookies')) {
+    $p = session_get_cookie_params();
+    setcookie(session_name(), '', time()-42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+}
 session_destroy();
-
-// Redirect ke halaman login
-header("Location: login.php");
-exit();
-?>
+header('Location: login.php'); exit;

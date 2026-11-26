@@ -11,6 +11,7 @@ $mapel = $stmt->fetch();
 
 $kelas = $_GET['kelas'] ?? '';
 $semester = $_GET['semester'] ?? '1';
+$tahun_ajaran = $_GET['tahun_ajaran'] ?? ((date('n') >= 7) ? date('Y') . '/' . (date('Y') + 1) : (date('Y') - 1) . '/' . date('Y'));
 $success = '';
 $error = '';
 
@@ -44,7 +45,8 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $tahun_ajaran = $_POST['tahun_ajaran'] ?? '2024/2025';
+    verifyCsrf();
+    $tahun_ajaran = $_POST['tahun_ajaran'] ?? $tahun_ajaran;
     $semester = $_POST['semester'] ?? '1';
     
     try {
@@ -125,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         $pdo->commit();
+        auditLog($pdo, 'SIMPAN_NILAI', 'Guru menyimpan nilai kelas ' . $kelas . ', semester ' . $semester . ', tahun ajaran ' . $tahun_ajaran);
         $success = "Nilai berhasil disimpan!";
         
         // Refresh data
@@ -174,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             th, td { padding: 5px; }
         }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="container">
         <h2>✏️ Input Nilai - Sistem Penilaian Sumatif & Proyek</h2>
@@ -208,12 +211,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <option value="2" <?= $semester == '2' ? 'selected' : '' ?>>Semester 2</option>
                 </select>
             </div>
+            <div>
+                <label>Tahun Ajaran:</label>
+                <input type="text" name="tahun_ajaran" value="<?= htmlspecialchars($tahun_ajaran) ?>" pattern="[0-9]{4}/[0-9]{4}" title="Gunakan format tahun ajaran, contoh: 2026/2027" inputmode="numeric" maxlength="9" required>
+            </div>
             <button type="submit">Tampilkan</button>
         </form>
         
         <?php if($kelas && !empty($siswa_list)): ?>
         <form method="POST" id="nilaiForm">
-            <input type="hidden" name="tahun_ajaran" value="2024/2025">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="tahun_ajaran" value="<?= htmlspecialchars($tahun_ajaran) ?>">
             <input type="hidden" name="semester" value="<?= htmlspecialchars($semester) ?>">
             <input type="hidden" name="kelas" value="<?= htmlspecialchars($kelas) ?>">
             
@@ -247,9 +255,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $stmt = $pdo->prepare("
                                 SELECT * FROM nilai 
                                 WHERE siswa_id = ? AND mata_pelajaran_id = ? 
-                                AND semester = ? AND tahun_ajaran = '2024/2025'
+                                AND semester = ? AND tahun_ajaran = ?
                             ");
-                            $stmt->execute([$siswa['id'], $mapel_id, $semester]);
+                            $stmt->execute([$siswa['id'], $mapel_id, $semester, $tahun_ajaran]);
                             $n = $stmt->fetch();
                             
                             // Nilai sumatif

@@ -20,7 +20,7 @@ echo "<!DOCTYPE html>
         .code { background: #f4f4f4; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; overflow-x: auto; }
         button { background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px; }
     </style>
-</head>
+<link rel='stylesheet' href='assets/app.css'></head>
 <body>
     <div class='container'>
         <h2>🔧 Perbaikan Password</h2>";

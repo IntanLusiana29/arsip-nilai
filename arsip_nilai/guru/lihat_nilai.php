@@ -145,7 +145,7 @@ function getStatusClass($nilai) {
             table { font-size: 11px; }
         }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="header">
         <h2>👁️ Lihat Nilai - <?= htmlspecialchars($mapel['nama_mapel'] ?? 'Mata Pelajaran') ?></h2>

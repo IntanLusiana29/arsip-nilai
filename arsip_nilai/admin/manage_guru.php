@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt = $pdo->prepare("INSERT INTO users (username, password, full_name, role, mata_pelajaran_id) VALUES (?, ?, ?, 'guru', ?)");
         $stmt->execute([$username, $password, $full_name, $mata_pelajaran_id]);
         $success = "Guru berhasil ditambahkan!";
+        auditLog($pdo, 'TAMBAH_GURU', "Menambahkan akun guru {$full_name} (username: {$username}).");
     } 
     elseif ($action == 'edit') {
         $id = $_POST['id'];
@@ -36,12 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $success = "Guru berhasil diupdate!";
+        auditLog($pdo, 'EDIT_GURU', "Mengubah akun guru {$full_name} (username: {$username}).");
     }
     elseif ($action == 'delete') {
         $id = $_POST['id'];
         $stmt = $pdo->prepare("DELETE FROM users WHERE id = ? AND role = 'guru'");
         $stmt->execute([$id]);
         $success = "Guru berhasil dihapus!";
+        auditLog($pdo, 'HAPUS_GURU', "Menghapus akun guru dengan ID {$id}.");
     }
 }
 
@@ -84,7 +87,7 @@ $mapel_list = $stmt->fetchAll();
         .logout { background: #e74c3c; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
         .back-link { display: inline-block; margin-bottom: 20px; color: #3498db; text-decoration: none; }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="header">
         <h2>Admin Panel - Kelola Guru</h2>

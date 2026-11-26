@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO siswa (nis, nama_siswa, kelas, jenis_kelamin) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$nis, $nama_siswa, $kelas, $jenis_kelamin]);
                 $success = "Siswa berhasil ditambahkan!";
+                auditLog($pdo, 'TAMBAH_SISWA', "Menambahkan siswa {$nama_siswa} (NIS: {$nis}, kelas: {$kelas}).");
             }
         } 
         elseif ($action == 'edit') {
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt = $pdo->prepare("UPDATE siswa SET nis = ?, nama_siswa = ?, kelas = ?, jenis_kelamin = ? WHERE id = ?");
                 $stmt->execute([$nis, $nama_siswa, $kelas, $jenis_kelamin, $id]);
                 $success = "Siswa berhasil diupdate!";
+                auditLog($pdo, 'EDIT_SISWA', "Mengubah data siswa {$nama_siswa} (NIS: {$nis}, kelas: {$kelas}).");
             }
         }
         elseif ($action == 'delete') {
@@ -57,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt = $pdo->prepare("DELETE FROM siswa WHERE id = ?");
                 $stmt->execute([$id]);
                 $success = "Siswa berhasil dihapus!";
+                auditLog($pdo, 'HAPUS_SISWA', "Menghapus data siswa dengan ID {$id}.");
             }
         }
     } catch (PDOException $e) {
@@ -197,7 +200,7 @@ while ($row = $stmt->fetch()) {
             .btn-edit, .btn-delete { padding: 3px 8px; font-size: 11px; }
         }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="header">
         <h2>Admin Panel - Kelola Siswa</h2>

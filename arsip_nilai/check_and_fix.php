@@ -11,7 +11,7 @@ echo "<!DOCTYPE html>
         .success { color: green; }
         .error { color: red; }
     </style>
-</head>
+<link rel='stylesheet' href='assets/app.css'></head>
 <body>
     <div class='box'>
         <h2>🔍 Diagnostic Database</h2>";

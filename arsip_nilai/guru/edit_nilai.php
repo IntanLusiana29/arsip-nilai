@@ -142,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_nilai'])) {
         
         $pdo->commit();
         $success = "Nilai berhasil diperbarui!";
+        auditLog($pdo, 'EDIT_NILAI', "Guru memperbarui nilai kelas {$kelas}, semester {$semester}, tahun ajaran {$tahun_ajaran}.");
         
         // Refresh data
         $stmt = $pdo->prepare("SELECT * FROM siswa WHERE kelas = ? ORDER BY nama_siswa");
@@ -243,7 +244,7 @@ function getPredikatClass($nilai) {
             th, td { padding: 5px; }
         }
     </style>
-</head>
+<link rel='stylesheet' href='../assets/app.css'></head>
 <body>
     <div class="container">
         <h2>✏️ Edit Nilai - Sistem Penilaian Sumatif & Proyek</h2>
